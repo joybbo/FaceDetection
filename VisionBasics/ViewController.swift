@@ -1,15 +1,17 @@
 /*
-See LICENSE folder for this sample’s licensing information.
-
-Abstract:
-Contains the main app implementation using Vision.
-*/
+ See LICENSE folder for this sample’s licensing information.
+ 
+ Abstract:
+ Contains the main app implementation using Vision.
+ */
 
 import Photos
 import UIKit
 import Vision
 
-class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate, UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+    
+    
     
     // Switches to toggle types of Vision requests ON/OFF
     @IBOutlet weak var rectSwitch: UISwitch!
@@ -18,7 +20,10 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
     @IBOutlet weak var barcodeSwitch: UISwitch!
     
     @IBOutlet weak var imageView: UIImageView!
+    @IBOutlet weak var statusLabel: UILabel!
     
+    @IBOutlet weak var collectionView: UICollectionView!
+    @IBOutlet weak var noFaceCollectionView: UICollectionView!
     // Layer into which to draw bounding box paths.
     var pathLayer: CALayer?
     
@@ -33,20 +38,196 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+        self.timer = Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: (#selector(ViewController.fireTimer)), userInfo: nil, repeats: true)
         // Tapping the image view brings up the photo picker.
-        let photoTap = UITapGestureRecognizer(target: self, action: #selector(promptPhoto))
-        self.view.addGestureRecognizer(photoTap)
+//        let photoTap = UITapGestureRecognizer(target: self, action: #selector(promptPhoto))
+//        self.view.addGestureRecognizer(photoTap)
         
         // Prompt user for a photo shortly after launch
-        perform(#selector(promptPhoto), with: nil, afterDelay: 0.1)
+        //        perform(#selector(promptPhoto), with: nil, afterDelay: 0.1)
+        
+        self.fetchAllImagesFromDevice(startDate: nil)
     }
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
-        if imageView.image == nil {
-            promptPhoto()
+        //        if imageView.image == nil {
+        //            promptPhoto()
+        //        }
+    }
+    
+    var imageRequestOption: PHImageRequestOptions {
+        get {
+            let options = PHImageRequestOptions()
+            options.isSynchronous = true
+            options.deliveryMode = .highQualityFormat
+            options.resizeMode = .exact
+            options.isNetworkAccessAllowed = true
+            return options
+        }
+    }
+    
+    func updateStatusLabel() {
+        
+        DispatchQueue.main.async {
+            let status =
+            "timer: \(self.timerCount) \ncount: \(self.count) \nnotFace: \(self.notFace) \nwithFace: \(self.withFace)"
+            self.statusLabel.text = status
+        }
+    }
+    
+    var count = 0
+    var notFace = 0
+    var withFace = 0
+    var timerCount = 0
+    
+    func checkHasExifData(imageData data:Data?) -> (Bool,Data?) {
+        guard let theData = data else {
+            return (false,nil)
+        }
+        if !theData.isImageHasExifData() {
+            return (false,nil)
+        }
+        return (true,theData)
+    }
+    
+    private let lockQueue = DispatchQueue(label: "accountllock.serial.queue")
+    var threadCount = 0
+    var firstReturnFlag = true
+    let MAX_THRAD_COUNT = 5
+    let dispatchGroup = DispatchGroup()
+    let dispatchQueue = DispatchQueue(label: "jp.co.bbo.fetchAllImages.queue", qos: .default, attributes: .concurrent, autoreleaseFrequency: .workItem, target: nil)
+    
+    var timer = Timer()
+    
+    @objc func fireTimer() {
+        self.timerCount += 1
+        self.updateStatusLabel()
+    }
+    
+    func leave() {
+        self.dispatchGroup.leave()
+        self.lockQueue.sync {
+            self.threadCount-=1
+        }
+    }
+    
+    func relaodNoFace() {
+        DispatchQueue.main.async {
+            self.noFaceCollectionView.reloadData()
+        }
+    }
+    
+    func fetchAllImagesFromDevice(startDate: Date?) {
+        self.timer.fire()
+        PHPhotoLibrary.requestAuthorization { status in
+            switch status {
+            case .authorized:
+                
+                
+                let allPhotos = PHAsset.fetchAssets(with: .image, options: nil)
+                allPhotos.enumerateObjects({ (asset, index, unsafeMutablePoint) in
+                    while true {
+                        var tmp: Int!
+                        self.lockQueue.sync {
+                            tmp = self.threadCount
+                        }
+                        if tmp < self.MAX_THRAD_COUNT{
+                            break
+                        }
+                        sleep(1)
+                    }
+                    self.dispatchGroup.enter()
+                    self.lockQueue.sync {
+                        self.threadCount+=1
+                    }
+                    self.dispatchQueue.async(group: self.dispatchGroup) {
+                        PHImageManager.default().requestImageData(for: asset, options: self.imageRequestOption, resultHandler: { (imageData, dataUTI, orientation, dict) in
+                            
+                            guard let theData = self.checkHasExifData(imageData: imageData).1 else {
+                                self.leave()
+                                return
+                            }
+                            
+                            let image = UIImage(data: theData)
+                            let orientation = CGImagePropertyOrientation(image!.imageOrientation)
+                            let imageRequestHandler = VNImageRequestHandler.init(cgImage: image!.cgImage!, orientation: orientation, options: [:])
+                            let faceDetectionRequest = VNDetectFaceRectanglesRequest.init { (request, error) in
+                                self.lockQueue.sync {
+                                    self.count += 1
+                                }
+                                if let nsError = error as NSError? {
+                                    print(nsError)
+                                    self.lockQueue.sync {
+                                        self.notFace += 1
+                                    }
+                                    self.photosNoFace.append(asset)
+                                    self.relaodNoFace()
+                                    self.leave()
+                                    self.updateStatusLabel()
+                                    return
+                                }
+                                guard let results = request.results as? [VNFaceObservation] else {
+                                    print("not face")
+                                    self.lockQueue.sync {
+                                        self.notFace += 1
+                                    }
+                                    self.photosNoFace.append(asset)
+                                    self.relaodNoFace()
+                                    self.leave()
+                                    self.updateStatusLabel()
+                                    return
+                                }
+                                
+                                if results.isEmpty{
+                                    print("not face")
+                                    self.lockQueue.sync {
+                                        self.notFace += 1
+                                        
+                                    }
+                                    self.photosNoFace.append(asset)
+                                    self.relaodNoFace()
+                                    self.leave()
+                                    self.updateStatusLabel()
+                                    return
+                                }
+                                self.lockQueue.sync {
+                                    self.withFace += 1
+                                }
+                                self.leave()
+                                self.updateStatusLabel()
+                                print("with face")
+                                self.photosFace.append(asset)
+                                DispatchQueue.main.async {
+                                    self.collectionView.reloadData()
+                                }
+                            }
+                            print("with face")
+                            // Send the requests to the request handler.
+                            DispatchQueue.global(qos: .userInitiated).async {
+                                do {
+                                    try imageRequestHandler.perform([faceDetectionRequest])
+                                } catch let error as NSError {
+                                    print("Failed to perform image request: \(error)")
+                                    return
+                                }
+                            }
+                        })
+                    }
+                })
+                self.dispatchGroup.notify(queue: self.dispatchQueue, execute: {
+                    print("notify")
+                    self.timer.invalidate()
+                })
+                break
+            case .denied, .restricted:
+                // TODO: show dialog.
+                break
+            case .notDetermined:
+                // TODO: show dialog.
+                break
+            }
         }
     }
     
@@ -339,6 +520,7 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
             self.presentAlert("Face Detection Error", error: nsError)
             return
         }
+        
         // Perform drawing on the main thread.
         DispatchQueue.main.async {
             guard let drawLayer = self.pathLayer,
@@ -601,6 +783,42 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
         }
         CATransaction.commit()
     }
+    
+    var photosFace = [PHAsset]()
+    var photosNoFace = [PHAsset]()
+    
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        return collectionView == self.collectionView ? self.photosFace.count : self.photosNoFace.count
+    }
+    
+    fileprivate let imageManager = PHCachingImageManager()
+    
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "imageChangeCell", for: indexPath) as! ImageChangeCell
+        
+        let asset = collectionView == self.collectionView ? self.photosFace[indexPath.item] : self.photosNoFace[indexPath.item]
+        cell.representedAssetIdentifier = asset.localIdentifier
+        imageManager.requestImage(for: asset, targetSize: CGSize(width: cell.photoImageView.bounds.width, height: cell.photoImageView.bounds.height), contentMode: .aspectFill, options: nil) { (image, _) in
+            if cell.representedAssetIdentifier == asset.localIdentifier {
+                cell.photoImageView.image = image
+            }
+        }
+        
+        return cell
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
+        let size = collectionView.frame.width / 3.0 - 0.5
+        return CGSize(width: size, height: size)
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat {
+        return 0.5
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
+        return 0.5
+    }
 }
 
 private extension CGMutablePath {
@@ -619,5 +837,26 @@ private extension CGMutablePath {
         if closePath {
             self.closeSubpath()
         }
+    }
+}
+
+class ImageChangeCell: UICollectionViewCell {
+    @IBOutlet weak var photoImageView: UIImageView!
+    
+    var representedAssetIdentifier: String!
+}
+
+extension Data {
+    func isImageHasExifData() -> Bool {
+        // extract exif data from NSMutableData
+        let imageCFData = self as CFData
+        if let cgImage = CGImageSourceCreateWithData(imageCFData, nil), let metaDict: NSDictionary = CGImageSourceCopyPropertiesAtIndex(cgImage, 0, nil) {
+            let exifDict: NSDictionary? = metaDict.object(forKey: kCGImagePropertyExifDictionary) as? NSDictionary
+            
+            if exifDict?["DateTimeOriginal"] != nil {
+                return true
+            }
+        }
+        return false
     }
 }
