@@ -14,6 +14,11 @@
 		285695362065D52F00EF208C /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 285695342065D52F00EF208C /* LaunchScreen.storyboard */; };
 		288FF80E206DB2BC000932BA /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 288FF80D206DB2BC000932BA /* README.md */; };
 		28BD25A8208EA804005FA3FB /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28BD25A7208EA804005FA3FB /* Utilities.swift */; };
+		CB1B8E0722A8ED3F00E3FDE0 /* KZBabyClassifier.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = CB1B8E0622A8ED3F00E3FDE0 /* KZBabyClassifier.mlmodel */; };
+		CB1B8E0B22A8ED5000E3FDE0 /* AiModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1B8E0822A8ED4F00E3FDE0 /* AiModel.swift */; };
+		CB1B8E0C22A8ED5000E3FDE0 /* Result.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1B8E0922A8ED4F00E3FDE0 /* Result.swift */; };
+		CB1B8E0D22A8ED5000E3FDE0 /* AiError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1B8E0A22A8ED5000E3FDE0 /* AiError.swift */; };
+		CB1B8E0F22A901F800E3FDE0 /* ImageChangeCellView.xib in Resources */ = {isa = PBXBuildFile; fileRef = CB1B8E0E22A901F800E3FDE0 /* ImageChangeCellView.xib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +33,11 @@
 		28BD25A7208EA804005FA3FB /* Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utilities.swift; sourceTree = "<group>"; };
 		72E5679072E5318000000001 /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		748EDA10748EDB2000000001 /* LICENSE.txt */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
+		CB1B8E0622A8ED3F00E3FDE0 /* KZBabyClassifier.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = KZBabyClassifier.mlmodel; sourceTree = "<group>"; };
+		CB1B8E0822A8ED4F00E3FDE0 /* AiModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AiModel.swift; sourceTree = "<group>"; };
+		CB1B8E0922A8ED4F00E3FDE0 /* Result.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Result.swift; sourceTree = "<group>"; };
+		CB1B8E0A22A8ED5000E3FDE0 /* AiError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AiError.swift; sourceTree = "<group>"; };
+		CB1B8E0E22A901F800E3FDE0 /* ImageChangeCellView.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = ImageChangeCellView.xib; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,9 +73,11 @@
 		2856952A2065D52E00EF208C /* VisionBasics */ = {
 			isa = PBXGroup;
 			children = (
+				CB1B8E0422A8ED1600E3FDE0 /* AI */,
 				2856952B2065D52F00EF208C /* AppDelegate.swift */,
 				28BD25A7208EA804005FA3FB /* Utilities.swift */,
 				2856952D2065D52F00EF208C /* ViewController.swift */,
+				CB1B8E0E22A901F800E3FDE0 /* ImageChangeCellView.xib */,
 				2856952F2065D52F00EF208C /* Main.storyboard */,
 				285695322065D52F00EF208C /* Assets.xcassets */,
 				285695342065D52F00EF208C /* LaunchScreen.storyboard */,
@@ -88,6 +100,17 @@
 				748EDA10748EDB2000000001 /* LICENSE.txt */,
 			);
 			path = LICENSE;
+			sourceTree = "<group>";
+		};
+		CB1B8E0422A8ED1600E3FDE0 /* AI */ = {
+			isa = PBXGroup;
+			children = (
+				CB1B8E0622A8ED3F00E3FDE0 /* KZBabyClassifier.mlmodel */,
+				CB1B8E0A22A8ED5000E3FDE0 /* AiError.swift */,
+				CB1B8E0822A8ED4F00E3FDE0 /* AiModel.swift */,
+				CB1B8E0922A8ED4F00E3FDE0 /* Result.swift */,
+			);
+			path = AI;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -150,6 +173,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB1B8E0F22A901F800E3FDE0 /* ImageChangeCellView.xib in Resources */,
 				285695362065D52F00EF208C /* LaunchScreen.storyboard in Resources */,
 				285695332065D52F00EF208C /* Assets.xcassets in Resources */,
 				288FF80E206DB2BC000932BA /* README.md in Resources */,
@@ -164,7 +188,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB1B8E0C22A8ED5000E3FDE0 /* Result.swift in Sources */,
+				CB1B8E0B22A8ED5000E3FDE0 /* AiModel.swift in Sources */,
+				CB1B8E0722A8ED3F00E3FDE0 /* KZBabyClassifier.mlmodel in Sources */,
 				28BD25A8208EA804005FA3FB /* Utilities.swift in Sources */,
+				CB1B8E0D22A8ED5000E3FDE0 /* AiError.swift in Sources */,
 				2856952E2065D52F00EF208C /* ViewController.swift in Sources */,
 				2856952C2065D52F00EF208C /* AppDelegate.swift in Sources */,
 			);

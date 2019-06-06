@@ -23,6 +23,7 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
     @IBOutlet weak var statusLabel: UILabel!
     
     @IBOutlet weak var collectionView: UICollectionView!
+    @IBOutlet weak var babyCollectionView: UICollectionView!
     @IBOutlet weak var noFaceCollectionView: UICollectionView!
     // Layer into which to draw bounding box paths.
     var pathLayer: CALayer?
@@ -45,6 +46,10 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
         
         // Prompt user for a photo shortly after launch
         //        perform(#selector(promptPhoto), with: nil, afterDelay: 0.1)
+        
+        self.collectionView.register(UINib.init(nibName: "ImageChangeCellView", bundle: Bundle.main), forCellWithReuseIdentifier: "imageChangeCell")
+        self.babyCollectionView.register(UINib.init(nibName: "ImageChangeCellView", bundle: Bundle.main), forCellWithReuseIdentifier: "imageChangeCell")
+        self.noFaceCollectionView.register(UINib.init(nibName: "ImageChangeCellView", bundle: Bundle.main), forCellWithReuseIdentifier: "imageChangeCell")
         
         self.fetchAllImagesFromDevice(startDate: nil)
     }
@@ -72,14 +77,12 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
         
         DispatchQueue.main.async {
             let status =
-            "timer: \(self.timerCount) \ncount: \(self.count) \nnotFace: \(self.notFace) \nwithFace: \(self.withFace)"
+            "notFace: \(self.photosNoFace.count) \t\t\t\t\ttimer: \(self.timerCount) \nwithFace: \(self.photosFace.count) \t\t\t\tcount: \(self.count) \nbabyFace: \(self.photosBaby.count)"
             self.statusLabel.text = status
         }
     }
     
     var count = 0
-    var notFace = 0
-    var withFace = 0
     var timerCount = 0
     
     func checkHasExifData(imageData data:Data?) -> (Bool,Data?) {
@@ -98,6 +101,7 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
     let MAX_THRAD_COUNT = 5
     let dispatchGroup = DispatchGroup()
     let dispatchQueue = DispatchQueue(label: "jp.co.bbo.fetchAllImages.queue", qos: .default, attributes: .concurrent, autoreleaseFrequency: .workItem, target: nil)
+    private var aiModel = AiModel()
     
     var timer = Timer()
     
@@ -159,9 +163,6 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
                                 }
                                 if let nsError = error as NSError? {
                                     print(nsError)
-                                    self.lockQueue.sync {
-                                        self.notFace += 1
-                                    }
                                     self.photosNoFace.append(asset)
                                     self.relaodNoFace()
                                     self.leave()
@@ -170,9 +171,6 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
                                 }
                                 guard let results = request.results as? [VNFaceObservation] else {
                                     print("not face")
-                                    self.lockQueue.sync {
-                                        self.notFace += 1
-                                    }
                                     self.photosNoFace.append(asset)
                                     self.relaodNoFace()
                                     self.leave()
@@ -182,26 +180,35 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
                                 
                                 if results.isEmpty{
                                     print("not face")
-                                    self.lockQueue.sync {
-                                        self.notFace += 1
-                                        
-                                    }
                                     self.photosNoFace.append(asset)
                                     self.relaodNoFace()
                                     self.leave()
                                     self.updateStatusLabel()
                                     return
                                 }
-                                self.lockQueue.sync {
-                                    self.withFace += 1
-                                }
-                                self.leave()
-                                self.updateStatusLabel()
+                                
                                 print("with face")
                                 self.photosFace.append(asset)
+                                self.updateStatusLabel()
                                 DispatchQueue.main.async {
                                     self.collectionView.reloadData()
                                 }
+                                self.aiModel.updateClassifications(for: image!, data: theData, { (result) in
+                                    switch result {
+                                    case .success(let value):
+                                        if value.isBaby {
+                                            print("with baby face")
+                                            self.photosBaby.append(asset)
+                                            self.updateStatusLabel()
+                                            DispatchQueue.main.async {
+                                                self.babyCollectionView.reloadData()
+                                            }
+                                        }
+                                    case .failure(let error):
+                                        print(error)
+                                    }
+                                    self.leave()
+                                })
                             }
                             print("with face")
                             // Send the requests to the request handler.
@@ -786,9 +793,10 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
     
     var photosFace = [PHAsset]()
     var photosNoFace = [PHAsset]()
+    var photosBaby = [PHAsset]()
     
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return collectionView == self.collectionView ? self.photosFace.count : self.photosNoFace.count
+        return collectionView == self.collectionView ? self.photosFace.count : (collectionView == self.babyCollectionView ? self.photosBaby.count : self.photosNoFace.count)
     }
     
     fileprivate let imageManager = PHCachingImageManager()
@@ -796,7 +804,7 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "imageChangeCell", for: indexPath) as! ImageChangeCell
         
-        let asset = collectionView == self.collectionView ? self.photosFace[indexPath.item] : self.photosNoFace[indexPath.item]
+        let asset = collectionView == self.collectionView ? self.photosFace[indexPath.item] : (collectionView == self.babyCollectionView ? self.photosBaby[indexPath.item] : self.photosNoFace[indexPath.item])
         cell.representedAssetIdentifier = asset.localIdentifier
         imageManager.requestImage(for: asset, targetSize: CGSize(width: cell.photoImageView.bounds.width, height: cell.photoImageView.bounds.height), contentMode: .aspectFill, options: nil) { (image, _) in
             if cell.representedAssetIdentifier == asset.localIdentifier {
